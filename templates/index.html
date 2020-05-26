@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <p>
+        Paste your tracklist below and choose your destination service.
+    </p>
+    <form action="{{ url_for('go') }}" method=["POST"]>
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.url(size=50) }}
+        </p>
+        <p>
+        </p>
+        <p>
+            {{ form.spotify(class_="spotify", id="platform") }}
+            {{ form.applemusic(class_="applemusic", id="platform") }}
+        </p>
+    </form>
+{% endblock %}
