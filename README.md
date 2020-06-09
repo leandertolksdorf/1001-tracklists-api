@@ -63,7 +63,7 @@ tracklist = Tracklist(
 tracklist.fetch()
 
 # Get a list of tracks
-tracks = tracklist.tracks()
+tracks = tracklist.get_tracks()
 
 # Get spotify and apple id for the first track
 tracks[0].get_external("spotify", "apple")
