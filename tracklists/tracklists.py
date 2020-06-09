@@ -56,8 +56,7 @@ class Tracklist:
     def fetch(self):
         """Fetch title and tracks from 1001.tl"""
 
-        if not self.soup:
-            self.soup = self.get_soup(self.url)
+        self.soup = self.get_soup(self.url)
         self.title = self.soup.title.text
         self.tracks = self.fetch_tracks()
 
@@ -89,10 +88,9 @@ class Tracklist:
 
             info = track.find_all("td")[2]
             track_id = info.find("span", class_="trackValue").get("id")[3:]
-            title = info.find("meta", itemprop="name").get("content")
 
             new = Track(
-                url = track_url,
+                url = "",#track_url,
                 track_id = track_id,
                 title = info.find("meta", itemprop="name").get("content")
             )
@@ -101,7 +99,7 @@ class Tracklist:
             self.tracks = result
         return result
 
-    def tracks(self):
+    def get_tracks(self):
         for track in self.tracks:
             print(track)
         return self.tracks
@@ -149,8 +147,11 @@ class Track(Tracklist):
 
         # Extract track id from <li title="add media links for this track">-element.
         track_id_source = self.soup.find("li", title="add media links for this track")
-        track_id_source = track_id_source.get("onclick")
-        self.track_id = re.search("(?<=idItem:\\s).[0-9]+", track_id_source).group(0)
+        try:
+            track_id_source = track_id_source.get("onclick")
+            self.track_id = re.search("(?<=idItem:\\s).[0-9]+", track_id_source).group(0)
+        except AttributeError:
+            print(track_id_source)
 
         # Fetch external ids
         self.fetch_external_ids()
@@ -161,11 +162,15 @@ class Track(Tracklist):
         Arguments:
 
         services -- One or more streaming service names.
+                    * for all.
 
         Services:
 
         spotify, video, apple, traxsource, soundcloud, beatport
         """
+        if services[0] == "*":
+            return self.external_ids
+
         result = {}
         for service in services:
             try:
