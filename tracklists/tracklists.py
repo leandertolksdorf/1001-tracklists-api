@@ -50,6 +50,7 @@ class Tracklist:
         return url + title + tracks
     
     def get_soup(self, url):
+        """"Retrtieve html and return a bs4-object."""
         response = requests.get(url, headers=Headers().generate())
         return BeautifulSoup(response.text, "html.parser")
     
@@ -60,43 +61,37 @@ class Tracklist:
         self.title = self.soup.title.text
         self.tracks = self.fetch_tracks()
 
-    def get_track_ids(self):
-        """Returns a list of ids for all tracks included in tracklist."""
-        track_values = self.soup.find_all("span", class_="trackValue")
-        result = [int((track_values[i]['id'])[3:]) for i in range(len(track_values)) if (track_values[i]['id'][3:]).isdigit()]
-        return result
-
-    def get_track_table(self):
-        result = {}
-        entries = self.soup.find_all("tr", class_="tlpItem")
-        for entry in entries:
-            print(entry.find_all("a"))
-        print(entries[0].text)
-
     def fetch_tracks(self):
         """Fetches metadata, url, and external ids for all tracks.
         Result is saved as Track()-Objects to tracklist.tracks."""
         result = []
+
+        # Find track containers.
         track_table = self.soup.find_all("tr", class_="tlpItem")
 
         for track in track_table:
+            # Find all hyperlinks for each track container
             links = track.find_all("a")
             for link in links:
+                # If track url found -> Save
                 if "/track/" in link["href"]:
                     track_url = link["href"]
                     break;
 
+            # Find span-elements with class="trackValue", which contain the track id.
             info = track.find_all("td")[2]
             track_id = info.find("span", class_="trackValue").get("id")[3:]
 
+            # Generate a new Track object using gathered data.
             new = Track(
                 url = "",#track_url,
                 track_id = track_id,
                 title = info.find("meta", itemprop="name").get("content")
             )
+
+            # Get external ids for new track.
             new.fetch_external_ids()
             result.append(new)
-            self.tracks = result
         return result
 
     def get_tracks(self):
@@ -148,7 +143,9 @@ class Track(Tracklist):
         # Extract track id from <li title="add media links for this track">-element.
         track_id_source = self.soup.find("li", title="add media links for this track")
         try:
+            # Extract content of "onclick" attribute, which is a js-function.
             track_id_source = track_id_source.get("onclick")
+            # Extract track id (after idItem-parameter) using regex.
             self.track_id = re.search("(?<=idItem:\\s).[0-9]+", track_id_source).group(0)
         except AttributeError:
             print(track_id_source)
@@ -184,7 +181,10 @@ class Track(Tracklist):
         result = {}
         URL = f"https://www.1001tracklists.com/ajax/get_medialink.php?idObject=5&idItem={self.track_id}&viewSource=1"
         
+        # Request all medialinks from 1001tl-API.
         response = requests.get(URL).json()
+
+        # Add external ids to external_ids.
         if response["success"]:
             data = response["data"]
             for elem in data:
@@ -193,7 +193,6 @@ class Track(Tracklist):
                 except KeyError:
                     print("Source: ", elem["source"], "not defined.")
             self.external_ids = result
-            return result
 
         else: 
             print("Request failed:", response)
