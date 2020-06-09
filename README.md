@@ -6,7 +6,7 @@ This is an under-development unofficial API for 1001tracklists.com
 
 This project is aimed at enabling easy access to the 1001tracklists database via Python.
 
-The scraping is done by [BeautifulSoup](https://pypi.org/project/beautifulsoup4/).
+The scraping is done with [BeautifulSoup](https://pypi.org/project/beautifulsoup4/).
 
 Everyone is welcome to contribute!
 
