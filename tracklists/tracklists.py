@@ -50,14 +50,19 @@ class Tracklist:
         return url + title + tracks
     
     def get_soup(self, url):
-        """"Retrtieve html and return a bs4-object."""
+        """"Retrieve html and return a bs4-object."""
         response = requests.get(url, headers=Headers().generate())
-        return BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(response.text, "html.parser")
+        if "Error 403" in soup.title.text:
+            del soup
+            raise Exception("Error 403: Captcha? https://www.1001tracklists.com/")
+        else:
+            return soup
     
     def fetch(self):
         """Fetch title and tracks from 1001.tl"""
-
-        self.soup = self.get_soup(self.url)
+        if not self.soup:
+            self.soup = self.get_soup(self.url)
         self.title = self.soup.title.text
         self.tracks = self.fetch_tracks()
 
@@ -66,31 +71,41 @@ class Tracklist:
         Result is saved as Track()-Objects to tracklist.tracks."""
         result = []
 
-        # Find track containers.
-        track_table = self.soup.find_all("tr", class_="tlpItem")
+        # Find td objects
+        table_cells = self.soup.find_all("td", {"id": re.compile('(?<=tlptr_)[0-9]+')})
+        
 
-        for track in track_table:
-            # Find all hyperlinks for each track container
-            links = track.find_all("a")
-            for link in links:
-                # If track url found -> Save
-                if "/track/" in link["href"]:
-                    track_url = link["href"]
-                    break;
 
-            # Find span-elements with class="trackValue", which contain the track id.
-            info = track.find_all("td")[2]
-            track_id = info.find("span", class_="trackValue").get("id")[3:]
+        for cell in table_cells:
+            # Find track title (Artist - Title)
+            try:
+                track_name = cell.find("meta", itemprop="name").get("content")
+                print(track_name)
+            except AttributeError:
+                print(f"Couldn't find title.")
+                continue
+            # Get track url
+            try:
+                track_url = cell.find("meta", itemprop="url").get("content")
+            except AttributeError:
+                print(f"No url found for {track_name}")
+                track_url = ""
+            # Find span-object containing track id in "id" attribute.
+            try:
+                id_attr = cell.find("span", {"id": re.compile('(?<=tr_)[0-9]+')}).get("id")
+                track_id = re.search("(?<=tr_)[0-9]+", id_attr).group(0)
+            except AttributeError:
+                track_id = 0
 
-            # Generate a new Track object using gathered data.
             new = Track(
-                url = "",#track_url,
+                url = track_url,
                 track_id = track_id,
-                title = info.find("meta", itemprop="name").get("content")
+                title = track_name
             )
 
             # Get external ids for new track.
             new.fetch_external_ids()
+            #new.fetch_external_ids()
             result.append(new)
         return result
 
@@ -165,7 +180,7 @@ class Track(Tracklist):
 
         spotify, video, apple, traxsource, soundcloud, beatport
         """
-        if services[0] == "*":
+        if not services:
             return self.external_ids
 
         result = {}
@@ -178,6 +193,11 @@ class Track(Tracklist):
 
     def fetch_external_ids(self):
         """Fetch external ids."""
+        if not self.track_id:
+            print("No track id")
+            return
+
+
         result = {}
         URL = f"https://www.1001tracklists.com/ajax/get_medialink.php?idObject=5&idItem={self.track_id}&viewSource=1"
         
@@ -196,3 +216,6 @@ class Track(Tracklist):
 
         else: 
             print("Request failed:", response)
+
+t = Tracklist("https://www.1001tracklists.com/tracklist/h48pvjk/moestwanted-dasding-moestwanted-112-2020-06-06.html")
+t.fetch()
