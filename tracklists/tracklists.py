@@ -216,6 +216,3 @@ class Track(Tracklist):
 
         else: 
             print("Request failed:", response)
-
-t = Tracklist("https://www.1001tracklists.com/tracklist/h48pvjk/moestwanted-dasding-moestwanted-112-2020-06-06.html")
-t.fetch()
