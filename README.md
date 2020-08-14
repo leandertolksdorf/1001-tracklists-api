@@ -1,6 +1,7 @@
 # ♫ 1001-tracklists-api (inofficial)
 
-This is an under-development unofficial API for 1001tracklists.com
+- Create Python-Objects from tracklists on 1001tracklists.com
+- Get Tracklists, Metadata and external ids (Spotify, Apple Music, ...)
 
 ## Summary
 
