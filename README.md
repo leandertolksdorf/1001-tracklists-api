@@ -10,6 +10,13 @@ The scraping is done with [BeautifulSoup](https://pypi.org/project/beautifulsoup
 
 Everyone is welcome to contribute!
 
+## To-do
+
+- [ ] Captcha handling
+    - When captcha occurs, pause scraping and redirect to solving page.
+    - or: Proxy rotation
+- [ ] JSON export
+
 ## Overview
 
 ### Classes
