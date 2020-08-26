@@ -123,50 +123,73 @@ class Tracklist:
         
         meta = self.soup.find("div", id = "leftDiv")
         
-        meta_data["tracklist_date"] = meta.find("span", title = "tracklist recording date").parent.parent.select("td")[1].text
+        try:
+            meta_data["tracklist_date"] = meta.find("span", title = "tracklist recording date").parent.parent.select("td")[1].text
+        except (AttributeError, IndexError):
+            print(f"Couldn't find tracklist recording date")
         
-        tracklist_interaction = meta.find_all("meta", itemprop = "interactionCount")
-        meta_data["tracklist_views"] = tracklist_interaction[0]["content"].split(":")[1]
-        meta_data["tracklist_likes"] = tracklist_interaction[1]["content"].split(":")[1]
+        try:
+            tracklist_interaction = meta.find_all("meta", itemprop = "interactionCount")
+        except AttributeError:
+            print(f"Couldn't find tracklist interactions")
         
-        IDed = re.search("\S+ \/ \S+", meta.text).group(0)
-        IDed = IDed.split(" / ")
-        meta_data["tracklist_tracks_IDed"] = IDed[0]
-        meta_data["tracklist_tracks_total"] = IDed[1]
+        for interaction in tracklist_interaction:
+            interaction_info = interaction["content"].strip().split(":")
+            
+            try:
+                interaction_name = "tracklist_" + interaction_info[0].lower()
+                interaction_count = interaction_info[1]
+                meta_data[interaction_name] = interaction_count
+            except IndexError:
+                print(f"Couldn't find tracklist interaction value")
         
-        meta_data["tracklist_genres"] = meta.find("td", id = "tl_music_styles").text.split(", ")
+        try:
+            IDed = re.search("\S+ \/ \S+", meta.text).group(0)
+            IDed = IDed.split(" / ")
+            meta_data["tracklist_tracks_IDed"] = IDed[0]
+            meta_data["tracklist_tracks_total"] = IDed[1]
+        except AttributeError:
+            print(f"Couldn't find tracklist IDed")
         
-        tracklist_DJs_location = meta.find_all("table", class_ = "sideTop")
-        tracklist_DJs_location = [person_place.find("a") for person_place in tracklist_DJs_location]
+        try:
+            meta_data["tracklist_genres"] = meta.find("td", id = "tl_music_styles").text.split(", ")
+        except:
+            print(f"Couldn't find tracklist genres")
         
-        tracklist_DJs = []
-        tracklist_source = {}
-        
-        for person_place in tracklist_DJs_location:
-          if bool(re.search("\/dj\/", person_place.get("href"))):
-            tracklist_DJs.append(person_place.text)
-          
-          if bool(re.search("\/source\/", person_place.get("href"))):
-            tracklist_source[person_place.parent.parent.parent.find("td").contents[0]] = person_place.text
-          
-        meta_data["DJs"] = tracklist_DJs
-        
-        # Tracklist sources include event name, location, radio show, etc.
-        # Splits each by type of source and adds number in case tracklist is for multiple sources (e.g. two radio shows do a colab and both appear on 1001Tracklists page)
-        meta_data["sources"] = {}
-        
-        for source in tracklist_source:
-            source_number = 0
-            source_w_number = source + str(source_number)
-        
-            while source_w_number in meta_data["sources"]:
-                source_number += 1
+        try:
+            tracklist_DJs_location = meta.find_all("table", class_ = "sideTop")
+            tracklist_DJs_location = [person_place.find("a") for person_place in tracklist_DJs_location]
+            
+            tracklist_DJs = []
+            tracklist_source = {}
+            
+            for person_place in tracklist_DJs_location:
+              if bool(re.search("\/dj\/", person_place.get("href"))):
+                tracklist_DJs.append(person_place.text)
+              
+              if bool(re.search("\/source\/", person_place.get("href"))):
+                tracklist_source[person_place.parent.parent.parent.find("td").contents[0]] = person_place.text
+              
+            meta_data["DJs"] = tracklist_DJs
+            
+            # Tracklist sources include event name, location, radio show, etc.
+            # Splits each by type of source and adds number in case tracklist is for multiple sources (e.g. two radio shows do a colab and both appear on 1001Tracklists page)
+            meta_data["sources"] = {}
+            
+            for source in tracklist_source:
+                source_number = 0
                 source_w_number = source + str(source_number)
-        
-            meta_data["sources"][source_w_number] = tracklist_source[source]
-        
-        for info in meta_data:
-            print(info + ": " + str(meta_data[info]))
+            
+                while source_w_number in meta_data["sources"]:
+                    source_number += 1
+                    source_w_number = source + str(source_number)
+            
+                meta_data["sources"][source_w_number] = tracklist_source[source]
+            
+            for info in meta_data:
+                print(info + ": " + str(meta_data[info]))
+        except AttributeError:
+            print(f"Couldn't find tracklist sources (e.g. DJs, festival, radio show, etc.")
         
         return(meta_data)
     
