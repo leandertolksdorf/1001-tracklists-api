@@ -186,10 +186,11 @@ class Tracklist:
             
                 meta_data["sources"][source_w_number] = tracklist_source[source]
             
-            for info in meta_data:
-                print(info + ": " + str(meta_data[info]))
         except AttributeError:
             print(f"Couldn't find tracklist sources (e.g. DJs, festival, radio show, etc.")
+        
+        for info in meta_data:
+            print(info + ": " + str(meta_data[info]))
         
         return(meta_data)
     
