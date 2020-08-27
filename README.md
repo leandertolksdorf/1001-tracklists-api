@@ -17,6 +17,7 @@ Everyone is welcome to contribute!
     - When captcha occurs, pause scraping and redirect to solving page.
     - or: Proxy rotation
 - [ ] JSON export
+- [ ] Update documentation
 
 ## Overview
 
