@@ -1,303 +1,303 @@
-import requests
+from .scraper import *
+
 import re
-from fake_headers import Headers
-from bs4 import BeautifulSoup
 
 SOURCES = {
-    "1": "beatport",
-    "2": "apple",
-    "4": "traxsource",
-    "10": "soundcloud",
-    "13": "video",
-    "36": "spotify",
+	"1": "beatport",
+	"2": "apple",
+	"4": "traxsource",
+	"10": "soundcloud",
+	"13": "video",
+	"36": "spotify",
 }
 
 class Tracklist:
-    """An object representing a tracklist on 1001tracklists.com
+	""" An object representing a tracklist on 1001tracklists.com.
 
-    Keyword arguments:
+	Attributes
+	----------
+	url : str
+		Link to tracklist page
+	tracklist_id : str
+		Internal 1001tracklists.com ID for the tracklist
+	title : str
+		Name of tracklist
+	tracks : list[Track]
+		List of tracks in tracklist
+	date_recorded : str
+		Date tracklist was recorded
+	interaction_details : dict{str : int}
+		Dictionary including measure of interactions with the tracklist (e.g. likes)
+	num_tracks : int
+		Number of tracks in tracklist
+	num_tracks_IDed : int
+		Number of tracks which have been IDed
+	genres : list[str]
+		List of genres associated with the tracklist
+	DJs : list[str]
+		List of DJs who made the tracklist
+	sources : dict{str : str}
+		Dictionary mapping the type of source to the source (e.g. {' Open Air / Festival 0': 'Tomorrowland'})
+	"""
+	
+	""" To-do list included here to avoid showing up in help(Tracklist)
+	TODO:
+	make DJ class
+	tracklist media links
+	track number, handling w/
+	clean up sources?
+	methods for genre_counts, ertist_counts, etc.
+	additional metadata from left pane
+	"""
+	
+	def __init__(self, url, fetch=True):
+		""" Initialize Tracklist. """
+		self.url = url
+		self.tracklist_id = self.url.split('tracklist/')[1].split('/')[0] # Get id from url
+		if fetch:
+			self.fetch()
 
-    url -- The url of the tracklist page.
+	def fetch(self):
+		""" Load Tracklist details from url. """
+		soup = get_soup(self.url)
+		left_pane = soup.find("div", id = "leftDiv")
+		self.title = soup.title.text
+		self.load_metadata(left_pane)
+		
+		# Load tracks into list
+		self.tracks = []
+		track_divs = soup.find_all('div', {'itemprop': 'tracks'}) # Find div objects for tracks
+		for track_div in track_divs:
+			t = Track(track_div) # TODO Get external links?
+			if track_div.find('i', {'title': 'mashup linked position'}): # Track part of mashup -> attach to previous entry in tracklist
+				self.tracks[-1].add_subsong(t)
+			else:
+				self.tracks.append(t)
 
-    Class variables:
+	def __repr__(self):
+		return "Tracklist(" + self.tracklist_id + ")"
 
-    url
+	def __str__(self):
+		return self.title
 
-    title -- Title of the Tracklist
-    
-    tracks -- List of Track Objects
-
-    Run tracklist_name.fetch() to get data.
-    """
-    
-    def __init__(self, url=""):
-        self.url = url
-        if not url:
-            with open("test.html") as f:
-                self.soup = BeautifulSoup(f, "html.parser")
-        else:
-            self.url = url
-        self.title = ""
-        self.tracks = []
-        self.soup = None
-
-    def __repr__(self):
-        url = f"<Tracklist> {self.url}\n"
-        title = f"<Title> {self.title}\n"
-        tracks = ""
-        for track in self.tracks:
-            tracks += f"    <Track> {track.title}\n"
-        return url + title + tracks
-    
-    def get_soup(self, url):
-        """"Retrieve html and return a bs4-object."""
-        response = requests.get(url, headers=Headers().generate())
-        soup = BeautifulSoup(response.text, "html.parser")
-        if "Error 403" in soup.title.text:
-            del soup
-            raise Exception("Error 403: Captcha? https://www.1001tracklists.com/")
-        else:
-            return soup
-    
-    def fetch(self):
-        """Fetch title and tracks from 1001.tl"""
-        if not self.soup:
-            self.soup = self.get_soup(self.url)
-        self.title = self.soup.title.text
-        self.tracks = self.fetch_tracks()
-        self.meta = self.fetch_meta()
-
-    def fetch_tracks(self):
-        """Fetches metadata, url, and external ids for all tracks.
-        Result is saved as Track()-Objects to tracklist.tracks."""
-        result = []
-
-        # Find td objects
-        table_cells = self.soup.find_all("td", {"id": re.compile('(?<=tlptr_)[0-9]+')})
-        
-
-
-        for cell in table_cells:
-            # Find track title (Artist - Title)
-            try:
-                track_name = cell.find("meta", itemprop="name").get("content")
-                print(track_name)
-            except AttributeError:
-                print(f"Couldn't find title.")
-                continue
-            # Get track url
-            try:
-                track_url = cell.find("meta", itemprop="url").get("content")
-            except AttributeError:
-                print(f"No url found for {track_name}")
-                track_url = ""
-            # Find span-object containing track id in "id" attribute.
-            try:
-                id_attr = cell.find("span", {"id": re.compile('(?<=tr_)[0-9]+')}).get("id")
-                track_id = re.search("(?<=tr_)[0-9]+", id_attr).group(0)
-            except AttributeError:
-                track_id = 0
-
-            new = Track(
-                url = track_url,
-                track_id = track_id,
-                title = track_name
-            )
-
-            # Get external ids for new track.
-            new.fetch_external_ids()
-            #new.fetch_external_ids()
-            result.append(new)
-        return result
-
-    def get_tracks(self):
-        for track in self.tracks:
-            print(track)
-        return self.tracks
-    
-    def fetch_meta(self):
-        meta_data = {}
-        
-        url_comp = self.url.split("/")
-        meta_data["tracklist_id"] = url_comp[url_comp.index("tracklist") + 1]
-        
-        meta = self.soup.find("div", id = "leftDiv")
-        
-        try:
-            meta_data["tracklist_date"] = meta.find("span", title = "tracklist recording date").parent.parent.select("td")[1].text
-        except (AttributeError, IndexError):
-            print(f"Couldn't find tracklist recording date")
-        
-        try:
-            tracklist_interaction = meta.find_all("meta", itemprop = "interactionCount")
-        except AttributeError:
-            print(f"Couldn't find tracklist interactions")
-        
-        for interaction in tracklist_interaction:
-            interaction_info = interaction["content"].strip().split(":")
-            
-            try:
-                interaction_name = "tracklist_" + interaction_info[0].lower()
-                interaction_count = interaction_info[1]
-                meta_data[interaction_name] = interaction_count
-            except IndexError:
-                print(f"Couldn't find tracklist interaction value")
-        
-        try:
-            IDed = re.search("\S+ \/ \S+", meta.text).group(0)
-            IDed = IDed.split(" / ")
-            meta_data["tracklist_tracks_IDed"] = IDed[0]
-            meta_data["tracklist_tracks_total"] = IDed[1]
-        except AttributeError:
-            print(f"Couldn't find tracklist IDed")
-        
-        try:
-            meta_data["tracklist_genres"] = meta.find("td", id = "tl_music_styles").text.split(", ")
-        except:
-            print(f"Couldn't find tracklist genres")
-        
-        try:
-            tracklist_DJs_location = meta.find_all("table", class_ = "sideTop")
-            tracklist_DJs_location = [person_place.find("a") for person_place in tracklist_DJs_location]
-            
-            tracklist_DJs = []
-            tracklist_source = {}
-            
-            for person_place in tracklist_DJs_location:
-              if bool(re.search("\/dj\/", person_place.get("href"))):
-                tracklist_DJs.append(person_place.text)
-              
-              if bool(re.search("\/source\/", person_place.get("href"))):
-                tracklist_source[person_place.parent.parent.parent.find("td").contents[0]] = person_place.text
-              
-            meta_data["DJs"] = tracklist_DJs
-            
-            # Tracklist sources include event name, location, radio show, etc.
-            # Splits each by type of source and adds number in case tracklist is for multiple sources (e.g. two radio shows do a colab and both appear on 1001Tracklists page)
-            meta_data["sources"] = {}
-            
-            for source in tracklist_source:
-                source_number = 0
-                source_w_number = source + str(source_number)
-            
-                while source_w_number in meta_data["sources"]:
-                    source_number += 1
-                    source_w_number = source + str(source_number)
-            
-                meta_data["sources"][source_w_number] = tracklist_source[source]
-            
-        except AttributeError:
-            print(f"Couldn't find tracklist sources (e.g. DJs, festival, radio show, etc.")
-        
-        for info in meta_data:
-            print(info + ": " + str(meta_data[info]))
-        
-        return(meta_data)
-    
-    def get_meta(self):
-        for info in self.meta:
-            print(info + ": " + str(self.meta[info]))
-        return self.meta
-
-class Track(Tracklist):
-    """An object representing a track on 1001tracklists.com
-
-    Keyword arguments:
-
-    url -- The url of the tracklist page.
-
-    track_id -- Internal 1001.tl-track id
-
-    title -- Title
-
-    external_ids -- List of available streaming ids
-
-    Run track_name.fetch() to get data.
-
-    """
-    
-    def __init__(self, url="", track_id=0, title="", external_ids={}):
-       
-        self.url = url
-        self.track_id = track_id
-        self.title = title
-        self.external_ids = external_ids
-        self.soup = None
-        
-
-    def __repr__(self):
-        title = f"<Title> {self.title}\n"
-        track_id = f"<ID> {self.track_id}\n"
-        external = f"<External> {[x for x in self.external_ids]}\n"
-        url = f"<URL> {self.url}...\n"
-        return url + title + track_id + external
-
-    def fetch(self):
-        """Fetch title, track_id and external ids."""
-
-        if not self.soup:
-            self.soup = self.get_soup(self.url)
-        
-        self.title = self.soup.find("h1", id="pageTitle").text.strip()
-
-        # Extract track id from <li title="add media links for this track">-element.
-        track_id_source = self.soup.find("li", title="add media links for this track")
-        try:
-            # Extract content of "onclick" attribute, which is a js-function.
-            track_id_source = track_id_source.get("onclick")
-            # Extract track id (after idItem-parameter) using regex.
-            self.track_id = re.search("(?<=idItem:\\s).[0-9]+", track_id_source).group(0)
-        except AttributeError:
-            print(track_id_source)
-
-        # Fetch external ids
-        self.fetch_external_ids()
-
-    def get_external(self, *services):
-        """Returns external ids of passed streaming services.
-
-        Arguments:
-
-        services -- One or more streaming service names.
-                    * for all.
-
-        Services:
-
-        spotify, video, apple, traxsource, soundcloud, beatport
-        """
-        if not services:
-            return self.external_ids
-
-        result = {}
-        for service in services:
-            try:
-                result[service] = self.external_ids[service]
-            except KeyError:
-                print(f"ERROR: No id found for {service}")
-        return result
-
-    def fetch_external_ids(self):
-        """Fetch external ids."""
-        if not self.track_id:
-            print("No track id")
-            return
+	def load_metadata(self, left_pane):
+		""" Load metadata on tracklist from left pane of page (DJ, source, date recorded, etc.). """ 
+		try:
+			self.date_recorded = left_pane.find("span", title = "tracklist recording date").parent.parent.select("td")[1].text
+		except (AttributeError, IndexError):
+			self.date_recorded = None
+		
+		self.interaction_details = {}
+		for interaction_detail in left_pane.find_all("meta", itemprop = "interactionCount"):
+			name, count = interaction_detail["content"].strip().split(":")
+			self.interaction_details[name] = int(count)
+		
+		IDed, total = left_pane.text.split('IDed')[1].split('short')[0].strip().split(" / ")
+		self.num_tracks = int(total)
+		self.num_tracks_IDed = int(IDed) if IDed != 'all' else int(total)
+		
+		self.genres = left_pane.find("td", id = "tl_music_styles").text.split(", ") if left_pane.find("td", id = "tl_music_styles") else []
+		
+		try:
+			tracklist_DJs_location = left_pane.find_all("table", class_ = "sideTop")
+			tracklist_DJs_location = [person_place.find("a") for person_place in tracklist_DJs_location]
+			
+			tracklist_DJs = []
+			tracklist_source = {}
+			
+			for person_place in tracklist_DJs_location:
+				if re.search("\/dj\/", person_place.get("href")):
+					tracklist_DJs.append(person_place.text)
+				if re.search("\/source\/", person_place.get("href")):
+					tracklist_source[person_place.parent.parent.parent.find("td").contents[0]] = person_place.text
+			  
+			self.DJs = tracklist_DJs
+			
+			# Tracklist sources include event name, location, radio show, etc.
+			# Splits each by type of source and adds number in case tracklist is for multiple sources (e.g. two radio shows do a colab and both appear on 1001Tracklists page)
+			self.sources = {}
+			for source in tracklist_source:
+				source_number = 0
+				source_w_number = source + str(source_number)
+				while source_w_number in self.sources:
+					source_number += 1
+					source_w_number = source + str(source_number)
+				self.sources[source_w_number] = tracklist_source[source]
+			
+		except AttributeError: # Couldn't find tracklist sources (e.g. DJs, festival, radio show, etc.)
+			pass
 
 
-        result = {}
-        URL = f"https://www.1001tracklists.com/ajax/get_medialink.php?idObject=5&idItem={self.track_id}&viewSource=1"
-        
-        # Request all medialinks from 1001tl-API.
-        response = requests.get(URL).json()
+class Artist:
+	""" An object representing an artist on 1001tracklists.com
 
-        # Add external ids to external_ids.
-        if response["success"]:
-            data = response["data"]
-            for elem in data:
-                try: 
-                    result[SOURCES[elem["source"]]] = elem["playerId"]
-                except KeyError:
-                    print("Source: ", elem["source"], "not defined.")
-            self.external_ids = result
+	Attributes
+	----------
+	name : str
+		Artist's name
+	url : str
+		Link to artist page on 1001tracklists.com, or None if no page exists
+	artist_id : str
+		Internal 1001tracklists.com ID for artist, or None if not available
 
-        else: 
-            print("Request failed:", response)
+	"""
+
+	"""
+	TODO
+	handle subartists e.g. &, vs.
+	fetch() method
+	"""
+
+	def __init__(self, span=None, name=None):
+		""" Initialize from bs4.span containing artist name and link, or artist name if span not available """
+		self.name = name if name else span.text
+		self.url = span.a['href'] if span and span.find('a') else None
+		self.artist_id = self.url.split('artist/')[1].split('/')[0] if self.url else None
+
+	def __str__(self):
+		return self.name
+
+	def __repr__(self):
+		return self.name
+
+
+class Label:
+	""" An object representing a label on 1001tracklists.com
+
+	Attributes
+	----------
+	name : str
+		Label name
+	url : str
+		Link to label page on 1001tracklists.com, or None if no page exists
+	label_id : str
+		Internal 1001tracklists.com ID for label, or None if not available
+	"""
+
+	"""
+	TODO
+	handle sublabels better
+	fetch() method
+	"""
+	
+
+	def __init__(self, td):
+		""" Initialize from bs4.td containing label name and link """
+		self.name = td.text
+		self.url = td.a['href'] if td.find('a') else None
+		self.label_id = self.url.split('label/')[1].split('/')[0] if self.url else None
+		# If sublabel (e.g. "DHARMA (SPINNIN')") keeps full name ("DHARMA (SPINNIN')") and link to sublabel (DHARMA)
+
+	def __str__(self):
+		return self.name
+
+	def __repr__(self):
+		return "Label(" + (self.label_id if self.label_id else self.name) + ")"
+
+
+class Track:
+	"""An object representing a tracklist on 1001tracklists.com
+
+	Attributes
+	----------
+	url : str
+		Link to tracklist page
+	track_id : str
+		Internal 1001tracklists.com ID for the track
+	full_title : str
+		Full name of track (e.g. 'Tiësto & DallasK - Show Me')
+	title : str
+		Track title (e.g. 'Seven Nation Fun (Holl & Rush Mashup)')
+	full_artist : str
+		Full name of track artist, including any featured artists (e.g. 'Tiësto & Dzeko ft. Lena Leon')
+	artist : Artist
+		Artist who recorded track (not including any featured artists)
+	genre : str
+		Genre associated with the track or None if not listed
+	duration : str
+		The duration of the track in ISO 8601 date format or None if not listed
+	labels : list[Label]
+		Label that released track, multiple labels in case Track is a mashup
+	subsongs : list[Track]
+		If Track is a mashup, list of tracks it includes
+	"""
+	"""
+	TODO
+	----
+	fetch()
+	Remix information
+	Parse featured artist(s)
+	Handle reworks
+	"""
+
+	def __init__(self, soup, fetch=False):
+		""" Initialize Track from bs4.div with itemprop="tracks". """
+
+		# Get basic info
+		self.full_title = soup.find('span', {'class': "trackFormat"}).text.strip().replace('\xa0', ' ')
+		self.full_artist, self.title = tuple(self.full_title.split(' - ', maxsplit=1))
+
+		# Get info from metadata
+		meta_data = {meta['itemprop']: meta['content'] for meta in soup.find_all('meta')} # keys: 'name', 'byArtist', 'publisher', 'duration', 'genre', 'url'
+		self.genre = meta_data['genre'] if 'genre' in meta_data else None
+		self.duration = meta_data['duration'] if 'duration' in meta_data else None
+		self.url = meta_data['url'] if 'url' in meta_data else None
+
+		track_id = soup.find('span', {'class': 'trackValue'})['id']
+		self.track_id = int(track_id[3:]) if 'pos' not in track_id else None
+		
+		# Get track artist
+		try:
+			artist_span = soup.find('span', {'title': 'open artist page'}).parent
+			self.artist = Artist(span=artist_span)
+		except: # No artist link available -> use artist name from metadata or self.full_artist
+			self.artist = Artist(name=meta_data['byArtist'] if 'byArtist' in meta_data else self.full_artist)
+		
+		# Get label details (store in list because can have multiple labels)
+		labels = soup.find_all('span', {'title': 'label'})
+		self.labels = [Label(label) for label in labels] if labels else []
+
+		# Prepare mashup details
+		self.subsongs = [] # Will be populated if track is mashup
+
+	def add_subsong(self, subsong):
+		"""
+		Add original tracks which were used in mashup.
+		
+		subsong : Track
+			Original track used in mashup
+		"""
+		self.subsongs.append(subsong)
+
+	def __str__(self):
+		return self.title + ' by ' + str(self.artist)
+	
+	def __repr__(self):
+		return self.__str__()
+	
+	def fetch(self):
+		""" Fetch track details from track page. """
+		if not self.track_id:
+			return
+		
+		url = 'https://www.1001tracklists.com/track/' + str(self.track_id)
+		soup = get_soup(url)
+		# TODO get other information
+
+	def fetch_external_ids(self):
+		""" Fetch external link ids for track. """
+		if not self.track_id:
+			return
+
+		# Request all medialinks from 1001tl-API
+		url = f"https://www.1001tracklists.com/ajax/get_medialink.php?idObject=5&idItem={self.track_id}"
+		response = get_json(url)
+
+		# Add external ids to external_ids
+		self.external_ids = {}
+		if response["success"]:
+			for elem in response["data"]:
+				try: 
+					self.external_ids[SOURCES[elem["source"]]] = elem["playerId"]
+				except KeyError:
+					print("Source: ", elem["source"], "not defined.")
