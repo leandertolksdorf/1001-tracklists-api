@@ -63,7 +63,6 @@ class Tracklist:
 	def fetch(self):
 		""" Load Tracklist details from url. """
 		soup = get_soup(self.url)
-		self.soup = soup # TODO remove
 		left_pane = soup.find("div", id = "leftDiv")
 		self.title = soup.title.text
 		self.load_metadata(left_pane)
@@ -281,7 +280,7 @@ class Track:
 		return self.title + ' by ' + str(self.artist)
 	
 	def __repr__(self):
-		return 'Track(' + self.title + ' by ' + str(self.artist) + ')'
+		return 'Track(' + self.full_title + ')'
 	
 	def fetch(self):
 		""" Fetch track details from track page. """
