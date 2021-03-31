@@ -41,16 +41,15 @@ class Tracklist:
 	track_nums : list[str]
 		List of track numbers ("01" is first song, "02" is second song, "w/" if track played with previous)
 	cues : list[str]
-		List of cue times for tracks (e.g. "0:04" or "47:30")
+		List of cue times for tracks (e.g. "0:04" or "47:30" or "" if not available)
 	"""
 	
 	""" To-do list included here to avoid showing up in help(Tracklist)
 	TODO:
 	make DJ class
 	tracklist media links
-	track number, handling w/
 	clean up sources?
-	methods for genre_counts, ertist_counts, etc.
+	methods for genre_counts, artist_counts, etc.
 	additional metadata from left pane
 	"""
 	
@@ -82,7 +81,6 @@ class Tracklist:
 		# Load track numbers and cues (adapted from https://github.com/globalnomad/quickCUE/blob/master/quickCUE.py)
 		self.track_nums = [span.text.strip() for span in soup.find_all('span', id=re.compile('_tracknumber_value'))]
 		self.cues = [div.text.strip() for div in soup.find_all('div', class_='cueValueField')]
-		# TODO check lengths match, if not may need to load row by row and fill in blanks
 
 	def __repr__(self):
 		return "Tracklist(" + self.tracklist_id + ")"
