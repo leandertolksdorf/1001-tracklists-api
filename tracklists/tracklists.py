@@ -38,15 +38,18 @@ class Tracklist:
 		List of DJs who made the tracklist
 	sources : dict{str : str}
 		Dictionary mapping the type of source to the source (e.g. {' Open Air / Festival 0': 'Tomorrowland'})
+	track_nums : list[str]
+		List of track numbers ("01" is first song, "02" is second song, "w/" if track played with previous)
+	cues : list[str]
+		List of cue times for tracks (e.g. "0:04" or "47:30" or "" if not available)
 	"""
 	
 	""" To-do list included here to avoid showing up in help(Tracklist)
 	TODO:
 	make DJ class
 	tracklist media links
-	track number, handling w/
 	clean up sources?
-	methods for genre_counts, ertist_counts, etc.
+	methods for genre_counts, artist_counts, etc.
 	additional metadata from left pane
 	"""
 	
@@ -66,13 +69,17 @@ class Tracklist:
 		
 		# Load tracks into list
 		self.tracks = []
-		track_divs = soup.find_all('div', {'itemprop': 'tracks'}) # Find div objects for tracks
+		track_divs = soup.find_all('div', {'class': 'tlToogleData'}) # Find div objects for tracks
 		for track_div in track_divs:
 			t = Track(track_div) # TODO Get external links?
 			if track_div.find('i', {'title': 'mashup linked position'}): # Track part of mashup -> attach to previous entry in tracklist
 				self.tracks[-1].add_subsong(t)
 			else:
 				self.tracks.append(t)
+
+		# Load track numbers and cues (adapted from https://github.com/globalnomad/quickCUE/blob/master/quickCUE.py)
+		self.track_nums = [span.text.strip() for span in soup.find_all('span', id=re.compile('_tracknumber_value'))]
+		self.cues = [div.text.strip() for div in soup.find_all('div', class_='cueValueField')]
 
 	def __repr__(self):
 		return "Tracklist(" + self.tracklist_id + ")"
@@ -273,7 +280,7 @@ class Track:
 		return self.title + ' by ' + str(self.artist)
 	
 	def __repr__(self):
-		return self.__str__()
+		return 'Track(' + self.full_title + ')'
 	
 	def fetch(self):
 		""" Fetch track details from track page. """
