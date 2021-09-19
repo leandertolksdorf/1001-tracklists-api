@@ -63,13 +63,13 @@ class Tracklist:
 	def fetch(self):
 		""" Load Tracklist details from url. """
 		soup = get_soup(self.url)
-		left_pane = soup.find("div", id = "leftDiv")
+		left_pane = soup.find("div", id = "left")
 		self.title = soup.title.text
 		self.load_metadata(left_pane)
 		
 		# Load tracks into list
 		self.tracks = []
-		track_divs = soup.find_all('div', {'class': 'tlToogleData'}) # Find div objects for tracks
+		track_divs = soup.find_all('div', {'class': 'tlpItem'}) # Find div objects for tracks
 		for track_div in track_divs:
 			t = Track(track_div) # TODO Get external links?
 			if track_div.find('i', {'title': 'mashup linked position'}): # Track part of mashup -> attach to previous entry in tracklist
@@ -99,7 +99,8 @@ class Tracklist:
 			name, count = interaction_detail["content"].strip().split(":")
 			self.interaction_details[name] = int(count)
 		
-		IDed, total = left_pane.text.split('IDed')[1].split('short')[0].strip().split(" / ")
+		IDed = left_pane.text.split('IDed')[1].split('short')[0].strip().split(" / ")[0]
+		total = left_pane.text.split('IDed')[1].split('short')[0].strip().split(" / ")[1].split(' ')[0]
 		self.num_tracks = int(total)
 		self.num_tracks_IDed = int(IDed) if IDed != 'all' else int(total)
 		
@@ -241,7 +242,7 @@ class Track:
 		""" Initialize Track from bs4.div with itemprop="tracks". """
 
 		# Get basic info
-		self.full_title = soup.find('span', {'class': "trackFormat"}).text.strip().replace('\xa0', ' ')
+		self.full_title = soup.find('span', {'class': "trackValue"}).text.strip().replace('\xa0', ' ')
 		self.full_artist, self.title = tuple(self.full_title.split(' - ', maxsplit=1))
 
 		# Get info from metadata
@@ -250,8 +251,10 @@ class Track:
 		self.duration = meta_data['duration'] if 'duration' in meta_data else None
 		self.url = meta_data['url'] if 'url' in meta_data else None
 
-		track_id = soup.find('span', {'class': 'trackValue'})['id']
-		self.track_id = int(track_id[3:]) if 'pos' not in track_id else None
+
+		#doesn't exist for some reason
+		#track_id = soup.find('span', {'class': 'trackValue'})['id']
+		#self.track_id = int(track_id[3:]) if 'pos' not in track_id else None
 		
 		# Get track artist
 		try:

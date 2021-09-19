@@ -2,3 +2,5 @@ venv
 .vscode
 __pycache__
 *.html
+*/__pycache__
+try.py
